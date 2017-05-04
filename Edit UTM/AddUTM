@@ -1,0 +1,293 @@
+package hex;
+//this routine can update existing creatives to fix the url UTMs
+
+import java.awt.AWTException;
+import java.awt.BorderLayout;
+import java.awt.Toolkit;
+
+import javax.swing.BorderFactory;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.Dimension;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Keys;
+import org.openqa.selenium.Point;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.support.ui.ExpectedCondition;
+import org.openqa.selenium.support.ui.WebDriverWait;
+
+public class AddUTM {
+
+	public static void main(String[] args) {
+		try {
+			openHexagram();
+			
+			JPanel panel = new JPanel();
+		    panel.setLayout(new BorderLayout(10, 10));
+			JLabel label2 = new JLabel("Job done");
+			
+		    panel.add(label2, BorderLayout.CENTER);
+		    panel.setBorder(BorderFactory.createEmptyBorder(10, 40, 10, 40));
+		    JFrame f = new JFrame();
+		    f.add(panel);
+		    f.pack();
+		    f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		    f.setVisible(true);
+		    f.setLocationRelativeTo(null); 
+			
+			
+		} catch (InterruptedException ie) {
+
+			System.out.println(ie.getMessage()+"shit got interrupted");	
+		} catch (AWTException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+
+
+	public static void openHexagram() throws InterruptedException, AWTException {
+
+		
+	
+
+		// Optional, if not specified, WebDriver will search your path for chromedriver.
+		System.setProperty("webdriver.chrome.driver", "C:\\Users\\User\\Desktop\\chromedriver.exe");
+
+		//set up driver 
+		WebDriver driver = new ChromeDriver();
+		//set up driver waiting periods
+		WebDriverWait wdw = new WebDriverWait(driver, 20);
+
+		//let's go!
+		driver.get("https://exchange.hexagram.com/login#/");
+
+		//maximising browser
+		java.awt.Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+		int x = screenSize.width;
+		int y = screenSize.height;
+		Dimension screenDim = new Dimension(x,y); 
+		Point screenPos = new Point(0,0);
+		driver.manage().window().setPosition(screenPos);
+		driver.manage().window().setSize(screenDim);
+
+		//load check
+		for(int k=0;k<40;k++){
+			if( driver.findElements(By.id("submit")).size()!=0)
+			{
+				System.out.println("loaded!!");
+				break;
+			}
+			else{
+				System.out.println("load"+k+"failed;");
+				Thread.sleep(500);
+			}
+			if(k==10 || k ==20 || k == 30){
+				driver.navigate().refresh();
+				System.out.println("Refreshed");}
+		}
+
+
+		
+
+		//input login info
+		driver.findElement(By.id("username")).sendKeys("admin");
+		driver.findElement(By.id("password")).sendKeys("hunter2");
+		driver.findElement(By.id("submit")).click();
+
+
+		//load check
+		for(int k=0;k<40;k++){
+			if( driver.findElements(By.linkText("Campaigns")).size()!=0)
+			{
+				System.out.println("loaded!!");
+				break;
+			}
+			else{
+				System.out.println("load"+k+"failed;");
+				Thread.sleep(500);
+			}
+			if(k==10 || k ==20 || k == 30){
+				driver.navigate().refresh();
+				System.out.println("Refreshed");}
+		}
+
+		//get campaignID and items to be displayed (for speed issues)
+		JTextField campaignID = new JTextField(20);
+		JTextField itemsPerPage = new JTextField(3);
+
+		Object[] campaignSettings = {
+				"campaign ID",campaignID,
+				"Items Per Page", itemsPerPage
+
+		};
+		String campaignIDString = null;
+		int itemsPerPageInt = 0;
+
+		int options = JOptionPane.showConfirmDialog(null, campaignSettings, "Please enter campaign ID", JOptionPane.OK_CANCEL_OPTION);
+
+		if (options == JOptionPane.OK_OPTION) {
+
+			campaignIDString = campaignID.getText();
+			itemsPerPageInt = Integer.parseInt(itemsPerPage.getText());
+		}
+
+		//go to campaign
+		driver.get("https://exchange.hexagram.com/#/campaign/"+campaignIDString+"/creatives?items="+itemsPerPageInt);
+
+		//check for elements being loaded
+		ExpectedCondition<Boolean> urlsPresent = new ExpectedCondition<Boolean>() {
+			@Override
+			public Boolean apply(WebDriver d) {
+				@SuppressWarnings("unused")
+				WebElement result = d.findElement(By.id("urls"));
+				return true;
+			}
+		};
+		wdw.until(urlsPresent); // Won't get past here til timeout or element is found
+
+
+		//get utm to replace and location of first and last ad unit to cycle through
+		JTextField UTM = new JTextField(20);
+		JTextField firstPage = new JTextField(3);
+		JTextField firstCreative = new JTextField(3);
+		JTextField lastPage = new JTextField(3);
+		JTextField lastCreative = new JTextField(3);
+
+		Object[] fields = {
+				"UTM", UTM,
+				"First Page", firstPage,
+				"First Creative", firstCreative,
+				"Last Page", lastPage,
+				"Last Creative", lastCreative,
+
+		};
+
+		int option = JOptionPane.showConfirmDialog(null, fields, "Please enter which creatives to edit", JOptionPane.OK_CANCEL_OPTION);
+
+		String stringUTM = null;
+		int firstCreativeInt=0;
+		int lastCreativeInt=0;	   
+		int firstPageInt=0;
+		int lastPageInt=0;
+
+		if (option == JOptionPane.OK_OPTION) {
+			firstCreativeInt =  Integer.parseInt(firstCreative.getText());
+			lastCreativeInt =  Integer.parseInt(lastCreative.getText());
+			firstPageInt = Integer.parseInt(firstPage.getText());
+			lastPageInt = Integer.parseInt(lastPage.getText());
+			stringUTM = UTM.getText();
+
+		}	      
+
+
+		System.out.println(firstPageInt+"firstpage");
+		System.out.println(lastPageInt);
+
+
+		//loop through pages
+		for(int k = firstPageInt; k < 1+lastPageInt; k++ ){
+			System.out.println("page "+k);
+			driver.get("https://exchange.hexagram.com/#/campaign/"+campaignIDString+"/creatives?items="+itemsPerPageInt+"&page="+k);
+
+
+			//replace this with wait method
+			Thread.sleep(3000);
+			//get elements in view
+			((JavascriptExecutor) driver).executeScript("window.scrollBy(0, -3000)", "");
+
+			//setting creative loop parameters based on pagenumber	
+			int i = 0;
+			int lastCreativeOnPage = 0;
+			//logic to loop through creatives depending on if first, central or last pages
+			if(k==firstPageInt){i=firstCreativeInt; lastCreativeOnPage=itemsPerPageInt+2;}
+			else if(k>firstPageInt && k<lastPageInt){i=1; lastCreativeOnPage=itemsPerPageInt+2;}
+			else if(k==lastPageInt){i=1; lastCreativeOnPage=lastCreativeInt+2;}	   
+
+			//loop through the creatives		   
+			while(++i<lastCreativeOnPage){
+				Thread.sleep(1000);
+				
+				//need to update this double overlay wait
+				for(int tt = 0; tt<50; tt++){
+					if(	driver.findElement(By.cssSelector("#overlay > button")).isDisplayed()){
+						if(tt==3 ||tt==10 || tt==20 ||tt==35 ||tt==49){System.out.println("Element is overlay Visible"+tt);}
+						Thread.sleep(400);
+					}else{
+						System.out.println("Element is overlay InVisible");
+						break;
+					}
+				}
+				Thread.sleep(1000);
+				
+				for(int tt = 0; tt<50; tt++){
+					if(	driver.findElement(By.cssSelector("#overlay > button")).isDisplayed()){
+						if(tt==3 ||tt==10 || tt==20 ||tt==35 ||tt==49){System.out.println("Element is overlay Visible"+tt);}
+						Thread.sleep(400);
+					}else{
+						System.out.println("Element is overlay InVisible");
+						break;
+					}
+				}
+		      		
+				((JavascriptExecutor) driver).executeScript("window.scrollBy(0, -600)", "");
+				
+				//consol checks
+				System.out.println("creative number (which is one higher):"+i);
+				System.out.println("lastCreativeOnPage"+lastCreativeOnPage);
+				//finds url input box	 
+				WebElement fieldUTM =  driver.findElement(By.xpath("//*[@id='content']/div[1]/div["+i+"]/div[2]/div[2]/div[2]/input"));
+
+				fieldUTM.click();
+
+				//editing the url to remove current utm if exists 
+				String text = fieldUTM.getAttribute("value"); 
+				if(text.contains("?") && text.contains("Desktop")){
+					int lastIndex = text.lastIndexOf("/?utm_source");
+					int endClip = text.lastIndexOf("sktop");
+					System.out.println(endClip);
+					
+					//stitch together new url
+					String baseURL = text.substring(0, lastIndex);	
+					String endURL = text.substring(endClip+5);
+					String fixedURL = baseURL+stringUTM+endURL;
+					
+					fieldUTM.clear();
+					fieldUTM.sendKeys(fixedURL);
+				}
+				else{fieldUTM.sendKeys(Keys.END+"/"+stringUTM);}
+
+				driver.findElement(By.xpath("//*[@id='content']/div[1]/div["+i+"]/div[2]/div[2]/div[4]/button[1]")).click();
+
+				//check
+				for(int t=0;t<50;t++){
+					if( driver.findElements(By.cssSelector("body > div.ng-scope > div:nth-child(1) > div.flash-messenger > div")).size()!=0)
+					{
+						System.out.println("Update success checked!");
+						driver.findElement(By.xpath("/html/body/div[1]/div[1]/div[1]/div[1]")).click();
+						break;
+					}
+					else{
+						if(t==3 ||t==10 || t==20 ||t==35 ||t==49){System.out.println("Update attempt"+t+"failed;");}
+						Thread.sleep(400);
+					}	 
+				}
+
+
+
+
+			}
+
+
+
+		}
+	}
+}
