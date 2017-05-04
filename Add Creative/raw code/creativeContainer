@@ -1,0 +1,69 @@
+package hex;
+
+import java.util.ArrayList;
+
+//creatives collection object
+//get and set methods all here
+public class CreativeContainer {
+
+	private String URL;
+	private ArrayList<String> titles = new ArrayList<String>(0);
+	private ArrayList<String> categories = new ArrayList<String>(0);
+	private ArrayList<String> photos = new ArrayList<String>(0);
+	private String PG;
+	
+	protected  void setURL(String url){
+		URL = url;
+	}
+	
+	protected String getURL(){
+		return URL;
+		
+	}
+	
+	protected void setTitles(String[] titleArray){
+		titles.clear();	
+		   for(String token : titleArray)
+        {
+         titles.add(token);
+        }
+	}
+	
+	protected ArrayList<String> getTitles(){
+		return titles;
+	}
+	
+	protected void setCategories(String[] catArray){
+		categories.clear();	
+		   for(String token : catArray)
+           {
+            categories.add(token);
+           }
+	}
+	
+	protected ArrayList<String> getCategories(){
+		return categories;
+	}
+
+	protected void setPhotos(String[] phoArray){
+		photos.clear();
+		   for(String token : phoArray)
+        {
+         photos.add(token);
+        }
+	}
+	
+	protected ArrayList<String> getPhotos(){
+		return photos;
+	}
+
+	protected void setPG(String pg){
+		PG = pg;
+	}
+	
+	protected String getPG(){
+		return PG;
+	}
+	
+	
+}

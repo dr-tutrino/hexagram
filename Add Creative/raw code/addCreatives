@@ -1,0 +1,535 @@
+package hex;
+import java.awt.AWTException;
+import java.awt.BorderLayout;
+import java.awt.Robot;
+import java.awt.Toolkit;
+import java.awt.event.KeyEvent;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+
+import org.openqa.selenium.By;
+import org.openqa.selenium.Dimension;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Point;
+import org.openqa.selenium.StaleElementReferenceException;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.chrome.ChromeDriver;
+
+import com.jacob.com.LibraryLoader;
+
+import atu.utils.windows.handler.WindowElement;
+import atu.utils.windows.handler.WindowHandler;
+import atu.utils.windows.handler.exceptions.WindowsHandlerException;
+
+public class addCreatives {
+
+	public static void main(String[] args) {
+
+		//file to write any upload issues for user
+		BufferedWriter errorWriter = null;
+		File file = new File("Errors.txt");	        
+
+		try {
+
+			errorWriter = new BufferedWriter(new FileWriter(file));
+			//reading from spreadsheet and storing it
+			readODS rs = new readODS();
+			ArrayList<CreativeContainer> creativeList =	rs.readFromODS();
+			openHexagram(creativeList, errorWriter);
+
+		} 
+		catch (InterruptedException ie) {
+
+			System.out.println("interuppted exception"+ie.getMessage());	
+		} 
+		catch (AWTException e) {
+			System.out.println("AWT"+e.getMessage());
+
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (WindowsHandlerException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		finally{try {
+			errorWriter.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}}
+	}
+
+
+
+	//@Test
+	public static void openHexagram(ArrayList<CreativeContainer> creativeList, BufferedWriter errorWriter ) throws InterruptedException, AWTException, IOException, WindowsHandlerException {
+		
+		//getting jacob library, chromium path and Hexagram campaign ID from user
+
+		JTextField cPath = new JTextField(20);	
+		JTextField jacobPath = new JTextField(20);	
+		JTextField campID = new JTextField(20);	
+		Object[] chromeDriverPath = {
+				"Chromium Path: ",cPath,
+				"Jacob Path: ", jacobPath,
+				"Campaign ID", campID,
+		};
+		String cpathString = null;
+		String jacobPathString = null;
+		String campIDString = null;
+		int opt = JOptionPane.showConfirmDialog(null, chromeDriverPath, "Please enter details", JOptionPane.OK_CANCEL_OPTION);
+		if (opt == JOptionPane.OK_OPTION) {
+			cpathString = cPath.getText();
+			jacobPathString = jacobPath.getText();
+			campIDString = campID.getText();
+		}
+	
+		System.setProperty("jacob.dll.path", jacobPathString);	
+		LibraryLoader.loadJacobLibrary(); 
+		WindowHandler handler = new WindowHandler();
+
+		
+		//defining keypresses
+		Keyboard keyboard = new Keyboard();
+		//for native system input
+		Robot robotnik = new Robot();
+
+		
+		
+
+		// Optional, if not specified, WebDriver will search your path for chromedriver.
+		System.setProperty("webdriver.chrome.driver", cpathString);
+		
+		//start driver
+		WebDriver driver = new ChromeDriver();
+		driver.get("https://exchange.hexagram.com/login#/");
+
+		//reset browser size
+		java.awt.Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+		int x = screenSize.width;
+		int y = screenSize.height;
+		Dimension screenDim = new Dimension(x,y); 
+		Point screenPos = new Point(0,0);
+		driver.manage().window().setPosition(screenPos);
+		driver.manage().window().setSize(screenDim);
+
+		//loadcheck
+		waitforID("submit", driver);
+
+		//getting user credentials
+		JTextField userID = new JTextField(20);
+		JTextField userPW = new JTextField(3);
+
+		Object[] userFields = {
+				"Username", userID,
+				"Password", userPW
+
+		};
+		String userIDString = null;
+		String userPWString = null;
+
+		int opt1 = JOptionPane.showConfirmDialog(null, userFields, "Please enter username and password", JOptionPane.OK_CANCEL_OPTION);
+
+		if (opt1 == JOptionPane.OK_OPTION) {
+
+			userIDString = userID.getText();
+			userPWString = userPW.getText();
+		}
+
+		driver.findElement(By.id("username")).sendKeys(userIDString);
+		driver.findElement(By.id("password")).sendKeys(userPWString);
+		driver.findElement(By.id("submit")).click();
+		
+		
+		//loadcheck
+		waitForLinkText("Campaigns", driver);
+ 
+		//navigate to campaign
+		driver.get("https://exchange.hexagram.com/#/campaign/"+campIDString+"/creatives?status=active&items=1&page=1");
+
+		//check
+		waitforID("urls", driver);
+
+
+
+		for(CreativeContainer thisCreative : creativeList){
+
+			Thread.sleep(1000); 
+			//CreativeContainer methods
+			String stringURL = thisCreative.getURL();
+			ArrayList<String> titles = thisCreative.getTitles();
+			ArrayList<String> photos = thisCreative.getPhotos();
+
+			//looping through photo/title combinatons
+			for(String thisTitle : titles){
+
+				for(String thisPhoto : photos){
+
+					//adding URL
+					waitForXPath("//*[@id='creatives--title']",driver,stringURL);
+					
+					//dealing with known site issue where occasionally no URL will be accepted as valid
+					boolean URLcheck = checkInvalidURL(driver, stringURL);
+
+					if(URLcheck){
+
+						
+					//adding url of creative
+					driver.findElement(By.xpath("//*[@id='creatives--url']")).click();
+					driver.findElement(By.xpath("//*[@id='creatives--url']")).clear();
+				    driver.findElement(By.xpath("//*[@id='creatives--url']")).sendKeys(stringURL);
+						
+						driver.findElement(By.xpath("//*[@id='creatives--title']")).click();
+						driver.findElement(By.xpath("//*[@id='creatives--title']")).clear();
+						driver.findElement(By.xpath("//*[@id='creatives--title']")).sendKeys(thisTitle);
+
+
+						//robot presses tab 2-4 times to get to change image as couldn't focus image
+						if(driver.getPageSource().contains("No valid images were found for the URL provided."))
+						{
+							for(int i = 0; i<2; i++){
+								robotnik.keyPress(KeyEvent.VK_TAB);
+								robotnik.keyRelease(KeyEvent.VK_TAB);
+							}
+						}
+						else{
+							for(int i = 0; i<4; i++){
+								robotnik.keyPress(KeyEvent.VK_TAB);
+								robotnik.keyRelease(KeyEvent.VK_TAB);
+							}
+						}
+
+						robotnik.keyPress(KeyEvent.VK_ENTER);
+						robotnik.keyRelease(KeyEvent.VK_ENTER);
+
+						//removing the filetag part of photo filename if included in spreedsheet
+						if(thisPhoto.contains(".")){
+							int lastIndex = thisPhoto.lastIndexOf(".");
+							String thisPhoto2 = thisPhoto.substring(0, lastIndex);	
+
+							keyboard.type(thisPhoto2);
+						}
+						else{keyboard.type(thisPhoto);}
+
+						robotnik.keyPress(KeyEvent.VK_ENTER);
+						robotnik.keyRelease(KeyEvent.VK_ENTER);
+
+
+						WindowElement runWindowElement = handler.getWindowElement("Hexagram - Google Chrome");
+						WindowElement uploadDialog = handler.findElementByName(runWindowElement,"Open");
+						if(handler.isWindowPresent("Open")==true){
+							System.out.println("photo didnt upload");
+							Thread.sleep(1000);
+							//navigate out of windows image upload dialog
+							WindowElement problemDialog = handler.findElementByClassName(uploadDialog, "#32770");
+							WindowElement okButton = handler.findElementByAutomationID(problemDialog, "CommandButton_1");
+							handler.click(okButton);
+							robotnik.keyPress(KeyEvent.VK_ENTER);
+							robotnik.keyRelease(KeyEvent.VK_ENTER);
+							
+							//wait on dialog exit 
+							Thread.sleep(500);
+							
+							
+							for(int i = 0; i<3; i++){
+								robotnik.keyPress(KeyEvent.VK_TAB);
+								robotnik.keyRelease(KeyEvent.VK_TAB);
+							}
+							robotnik.keyPress(KeyEvent.VK_ENTER);
+							robotnik.keyRelease(KeyEvent.VK_ENTER);
+							
+							//writing to file that there wasan issue on this upload
+							errorWriter.write(thisPhoto+" for title '"+thisTitle+"' was not succesful in being added");
+							errorWriter.write(System.getProperty("line.separator"));
+
+							driver.navigate().refresh();
+							waitforID("urls", driver);
+
+
+						}
+						//if no issue with photo upload continue to PG checkbox
+						else{
+							//tab to PG checkbox
+							System.out.println("ok photo uploaded");
+
+							//find checkbox
+							List<WebElement> listweb1 =	driver.findElements(By.name("adult"));
+							
+							if(thisCreative.getPG().equals("Y")){
+								System.out.println("yes Y");
+								(listweb1.get(listweb1.size() - 1)).click();
+								
+							}
+
+							//now we tab to categories
+							List<WebElement> listweb =	driver.findElements(By.className("select2-input"));
+							(listweb.get(listweb.size() - 1)).click();
+
+							ArrayList<String> categories = thisCreative.getCategories();
+							for(String cattoken : categories){
+
+								keyboard.type(cattoken);
+
+								if(cattoken.equals("sports")||cattoken.equals("Sports")){
+									//special case for sports, as categories autofills suggested categories alphabetically
+									robotnik.keyPress(KeyEvent.VK_DOWN);
+									robotnik.keyRelease(KeyEvent.VK_DOWN);
+									robotnik.keyPress(KeyEvent.VK_DOWN);
+									robotnik.keyRelease(KeyEvent.VK_DOWN);
+									robotnik.keyPress(KeyEvent.VK_DOWN);
+									robotnik.keyRelease(KeyEvent.VK_DOWN);
+								}
+								if(cattoken.equals("gaming")||cattoken.equals("Gaming")){
+									//special case for gaming
+									robotnik.keyPress(KeyEvent.VK_DOWN);
+									robotnik.keyRelease(KeyEvent.VK_DOWN);
+								}
+								robotnik.keyPress(KeyEvent.VK_ENTER);
+								robotnik.keyRelease(KeyEvent.VK_ENTER);
+								Thread.sleep(500);
+							}
+							//now we tab to Approve button
+							Thread.sleep(500);
+							//scrolldown so elements in view
+							((JavascriptExecutor) driver).executeScript("window.scrollBy(0, -300)", "");
+							Thread.sleep(500);
+							robotnik.keyPress(KeyEvent.VK_SHIFT);
+							for(int i = 0; i<4; i++){
+								robotnik.keyPress(KeyEvent.VK_TAB);
+								robotnik.keyRelease(KeyEvent.VK_TAB);
+							}		
+							robotnik.keyRelease(KeyEvent.VK_SHIFT);
+
+							robotnik.keyPress(KeyEvent.VK_ENTER);
+							robotnik.keyRelease(KeyEvent.VK_ENTER);
+
+							//double loadcheck required here as overlay flickers
+							waitForOverlay(driver);
+							Thread.sleep(1000);
+							waitForOverlay(driver);
+
+							//saving
+							driver.findElement(By.cssSelector("#new-campaign-creatives > button")).click();
+							Thread.sleep(1000);
+
+						}//if check for photo succesfully uploaded
+
+					}//if check for URL
+					else{
+						driver.navigate().refresh();
+						//write to file here
+						System.out.println("let's see here");
+					}//refresh should be enough
+				}
+			}
+		}
+
+		JPanel panel = new JPanel();
+		panel.setLayout(new BorderLayout(10, 10));
+		JLabel label2 = new JLabel("Job done");
+
+		panel.add(label2, BorderLayout.CENTER);
+		panel.setBorder(BorderFactory.createEmptyBorder(10, 40, 10, 40));
+		JFrame f = new JFrame();
+		f.add(panel);
+		f.pack();
+		f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		f.setVisible(true);
+		f.setLocationRelativeTo(null); 
+
+	}
+
+	
+	//here are all the waiting methods used
+	
+	public static void waitForLinkText(String linktext, WebDriver driver) throws InterruptedException{
+
+		for(int k=0;k<60;k++){
+			if( driver.findElements(By.linkText(linktext)).size()!=0)
+			{
+				System.out.println("link text"+linktext+"loaded!");
+				break;
+			}
+			else{
+				System.out.println("link text "+linktext+" "+k+" failed;");
+				Thread.sleep(2000);
+			}
+			if(k==10 || k ==20 || k == 30){
+				driver.navigate().refresh();
+				System.out.println("Refresh attempt");}
+		}
+	}
+
+	public static void waitForCSS(String CSStext, WebDriver driver) throws InterruptedException{
+
+		for(int k=0;k<60;k++){
+			if( driver.findElements(By.cssSelector(CSStext)).size()!=0)
+			{
+				System.out.println("CSS text"+CSStext+"loaded!");
+				break;
+			}
+			else{
+				System.out.println("CSS text "+CSStext+" "+k+" failed;");
+				Thread.sleep(1000);
+			}
+			if(k==10 || k ==20 || k == 30){
+				driver.navigate().refresh();
+				System.out.println("Refresh attempt");}
+		}
+	}
+
+	public static void waitforID(String IDtext, WebDriver driver) throws InterruptedException{
+
+		for(int k=0;k<60;k++){
+			if( driver.findElements(By.id(IDtext)).size()!=0)
+			{
+				System.out.println("ID text"+IDtext+"loaded!");
+				break;
+			}
+			else{
+				System.out.println("ID text "+IDtext+" "+k+" failed;");
+				Thread.sleep(1000);
+			}
+			if(k==10 || k ==20 || k == 30){
+				driver.navigate().refresh();
+				System.out.println("Refresh attempt");}
+		}
+	}
+
+
+	public static void waitForXPath(String xpathtext, WebDriver driver,String stringURL) throws InterruptedException{
+		Thread.sleep(3000);
+		waitForOverlay(driver);
+		Thread.sleep(1000);
+		waitForOverlay(driver);
+
+		driver.findElement(By.id("urls")).sendKeys("http://www.salon.com");
+		//driver.findElement(By.id("urls")).sendKeys(stringURL);
+
+		if(retryingFindClick("#content > div:nth-child(5) > div:nth-child(2) > form > input", driver)){
+			//driver.findElement(By.cssSelector("#content > div:nth-child(5) > div:nth-child(2) > form > input")).click();
+
+
+			for(int k=0;k<60;k++){
+
+
+
+				if(driver.findElement(By.xpath("//*[@id='creatives--title']")).isDisplayed())
+				{
+					System.out.println("Xpath text"+xpathtext+"loaded!");
+
+
+					break;
+				}
+				else{
+					System.out.println("Xpath text "+xpathtext+" "+k+" failed;");
+					Thread.sleep(2000);
+				}
+				if(k==10 || k ==20 || k == 30){
+					driver.navigate().refresh();
+					System.out.println("Refresh attempt");
+
+					Thread.sleep(1000);
+					waitForOverlay(driver);					
+					Thread.sleep(1000);
+					waitForOverlay(driver);			
+
+					driver.findElement(By.id("urls")).sendKeys(stringURL);
+					driver.findElement(By.cssSelector("#content > div:nth-child(5) > div:nth-child(2) > form > input")).click();
+
+				}//if waiting for refresh
+			}//for loop for timing
+		}//if(retryingclick)
+	}
+
+	// site overlay causes so many problems!!!
+	public static void waitForOverlay(WebDriver driver) throws InterruptedException{
+
+		for(int tt = 0; tt<60; tt++){
+			if(	driver.findElement(By.cssSelector("#overlay > button")).isDisplayed()){
+				System.out.println("Element is overlay Visible"+tt);
+				Thread.sleep(2000);
+			}else{
+				System.out.println("Element is overlay InVisible");
+				break;
+			}
+			//if(tt==10 || tt==20 || tt== 35){
+			//	driver.navigate().refresh();
+			//	System.out.println("Refresh attempt");
+		//	}
+		}
+	}
+
+	
+	//big issue with site where occasionally NO urls will be considered valid for a time, this method tacklets by retrying with the known valid url "salon.com"
+	public static boolean checkInvalidURL(WebDriver driver, String invalidURL) throws InterruptedException{
+
+
+		boolean URLresolved = false;
+
+		for(int i = 0; i<3; i++){
+
+			if( driver.findElements(By.cssSelector("#new-campaign-creatives > div.widget.new-creative.ng-scope.error > div.error.ng-binding")).size()!=0)
+			{
+				
+				driver.navigate().refresh();
+				System.out.println("invalid URL refresh 1 iteration " +i);
+				Thread.sleep(2000);
+				waitForOverlay(driver);					
+				Thread.sleep(1000);
+				waitForOverlay(driver);					
+
+				//adding fixing URL
+				driver.findElement(By.id("urls")).sendKeys("http://www.salon.com");
+				driver.findElement(By.cssSelector("#content > div:nth-child(5) > div:nth-child(2) > form > input")).click();
+
+				driver.navigate().refresh();
+				System.out.println("invalid URL refresh 2 iteration " +i);
+				Thread.sleep(2000);
+				waitForOverlay(driver);					
+				Thread.sleep(1000);
+				waitForOverlay(driver);	
+
+				//retrying 'invalid' URL
+				waitforID("urls", driver);
+				waitForXPath("//*[@id='creatives--title']",driver,invalidURL);
+
+			}
+			else{
+				URLresolved = true;
+				return URLresolved;}
+
+		}
+		return URLresolved;
+	}
+
+	public static boolean retryingFindClick(String cssSelectorString,WebDriver driver) {
+		boolean result = false;
+		int attempts = 0;
+		while(attempts < 3) {
+			try {
+				driver.findElement(By.cssSelector(cssSelectorString)).click();
+				result = true;
+				break;
+			} catch(StaleElementReferenceException e) {
+				System.out.println("staleelement exception caught");
+			} 
+			attempts++;
+		}
+		return result;
+	}
+}
+

@@ -1,0 +1,101 @@
+package hex;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+
+import javax.swing.JOptionPane;
+import javax.swing.JTextField;
+
+import org.jopendocument.dom.spreadsheet.Sheet;
+import org.jopendocument.dom.spreadsheet.SpreadSheet;
+
+public class readODS {
+
+	public static void main(String[] args) {
+
+		try {
+
+			readODS rs = new readODS();
+			rs.readFromODS();
+
+
+		} 
+		catch (InterruptedException ie) {
+
+			System.out.println("interuppted exception"+ie.getMessage());	
+		} 
+		catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+
+	}
+	
+	//this is going to read from the spreadsheet and make a list of creativecontainer objects
+	public ArrayList<CreativeContainer> readFromODS() throws InterruptedException, IOException{
+		
+		//get spreadsheet filepath from user
+		JTextField odsPath = new JTextField(20);
+		String odsString = null;
+		Object[] odsoptions = {
+				"ODS Path: ",odsPath,
+				
+
+		};
+
+		int opt = JOptionPane.showConfirmDialog(null, odsoptions, "Please enter ODS path location", JOptionPane.OK_CANCEL_OPTION);
+
+		if (opt == JOptionPane.OK_OPTION) {
+
+			odsString = odsPath.getText();
+		}
+		
+		String arrowDelimiter = ">>";
+
+		//create the arraylist, file, sheet object
+		ArrayList<CreativeContainer> creativesList = new ArrayList<CreativeContainer>(0);
+		File file = new File(odsString);
+		Sheet sheet = SpreadSheet.createFromFile(file).getFirstSheet();
+
+		
+		sheet.setRowCount(sheet.getRowCount()+1);
+		int col = 1; 
+		boolean gotMoreColumns = true;
+		
+		//start going through the spreadsheet 
+		while(gotMoreColumns){
+
+			CreativeContainer CC = new CreativeContainer();
+
+			//getting url
+			CC.setURL(sheet.getCellAt(0,col).getTextValue());
+			
+			//titles seperated by >> delimiter
+			String[] titles = sheet.getCellAt(1, col).getTextValue().split(arrowDelimiter);
+			CC.setTitles(titles);
+
+			//categories
+			String[] categories = sheet.getCellAt(2, col).getTextValue().split(arrowDelimiter);
+			CC.setCategories(categories);
+
+			
+			String[] photos = sheet.getCellAt(3, col).getTextValue().split(arrowDelimiter);
+			CC.setPhotos(photos);
+			
+			CC.setPG(sheet.getCellAt(4,col).getTextValue());
+
+			creativesList.add(CC);
+			col++;
+			if(sheet.getCellAt(0,col).isEmpty()){
+				gotMoreColumns = false;
+			}
+
+	
+		}
+		
+
+		return creativesList;
+	}
+}
